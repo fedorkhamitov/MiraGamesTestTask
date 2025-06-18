@@ -1,8 +1,7 @@
 ﻿using AdminDashboard.Authentication;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 
-namespace AdminDashboard.Endpoints;
+namespace AdminDashboard.Endpoints.Auth;
 
 public static class AuthEndpoint
 {

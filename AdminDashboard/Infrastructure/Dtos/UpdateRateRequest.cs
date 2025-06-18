@@ -1,3 +1,3 @@
 ﻿namespace AdminDashboard.Infrastructure.Dtos;
 
-public record UpdateRateRequest();
+public record UpdateRateRequest(decimal Rate);

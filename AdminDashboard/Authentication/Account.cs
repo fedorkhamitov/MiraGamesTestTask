@@ -1,6 +1,6 @@
-﻿namespace AdminDashboard.Authentication;
+﻿using Microsoft.AspNetCore.Identity;
 
-public class Account
-{
-    
-}
+namespace AdminDashboard.Authentication;
+
+public class Account : IdentityUser<Guid>
+{ }

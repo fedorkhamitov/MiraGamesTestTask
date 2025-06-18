@@ -1,13 +1,37 @@
+using System.Text;
+using AdminDashboard.Authentication;
+using AdminDashboard.Endpoints;
+using AdminDashboard.Endpoints.Auth;
+using AdminDashboard.Endpoints.Rates;
+using AdminDashboard.Extensions;
+using AdminDashboard.Infrastructure;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services
+    .AddDatabase(builder.Configuration)
+    .AddJwtAuthentication(builder.Configuration)
+    .AddIdentityConfiguration()
+    .AddSwagger();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ForSpecialFrontend", cpBuilder =>
+    {
+        cpBuilder.WithOrigins("http://localhost:5173")
+            .AllowAnyMethod()
+            .AllowAnyHeader();
+    });
+});
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+app.UseCors("ForSpecialFrontend");
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -16,29 +40,29 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+app.UseAuthentication();
+app.UseAuthorization();
 
-app.MapGet("/weatherforecast", () =>
+app.SeedData();
+app.SeedDataAuth();
+
+app.MapPost("/auth/login", AuthEndpoint.Login);
+
+app.MapGet("/clients", async (AppDbContext db) => await db.Clients.ToListAsync()).RequireAuthorization();
+
+app.MapGet("/payments", async (AppDbContext db, int take = 5) =>
+    await db.Payments
+        .OrderByDescending(p => p.Date)
+        .Take(take)
+        .ToListAsync()
+).RequireAuthorization();
+
+app.MapGet("/rate", async (AppDbContext db) =>
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
+    var rate = await db.Rates.FindAsync(1);
+    return rate is not null ? Results.Ok(rate.Rate) : Results.NotFound();
+}).RequireAuthorization();
+
+app.MapPost("/rate", RateEndpoint.UpdateRate).RequireAuthorization();
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
